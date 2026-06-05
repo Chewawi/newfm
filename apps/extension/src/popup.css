@@ -1,0 +1,277 @@
+:root {
+	--neon-green: #00ff66;
+	--neon-pink: #ff007f;
+	--neon-yellow: #ebff00;
+	--neon-cyan: #00f3ff;
+	--pure-black: #000000;
+	--brutalist-border: 3px solid #ffffff;
+}
+
+html,
+body {
+	width: 350px;
+	min-height: 250px;
+	margin: 0;
+	padding: 0;
+	background-color: var(--pure-black);
+	color: #ffffff;
+	font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.popup-container {
+	width: 350px;
+	padding: 16px;
+	box-sizing: border-box;
+}
+
+.header {
+	border: var(--brutalist-border);
+	box-shadow: 4px 4px 0px var(--neon-cyan);
+	background: var(--pure-black);
+	padding: 8px;
+	margin-bottom: 16px;
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+}
+
+.title {
+	font-size: 22px;
+	font-weight: 900;
+	text-transform: uppercase;
+	letter-spacing: -1px;
+	margin: 0;
+	color: #ffffff;
+}
+
+.status-dot {
+	width: 12px;
+	height: 12px;
+	border: 2px solid #000;
+	outline: 2px solid #fff;
+}
+
+.status-dot.connected {
+	background-color: var(--neon-green);
+}
+
+.status-dot.disconnected {
+	background-color: var(--neon-pink);
+}
+
+.tabs-header {
+	display: flex;
+	gap: 6px;
+	margin-bottom: -3px;
+	position: relative;
+	z-index: 10;
+}
+
+.tab-btn {
+	background: var(--pure-black);
+	color: #ffffff;
+	border: var(--brutalist-border);
+	padding: 6px 12px;
+	font-family: inherit;
+	font-weight: 900;
+	text-transform: uppercase;
+	cursor: pointer;
+	font-size: 11px;
+}
+
+.tab-btn.active {
+	background: var(--neon-yellow);
+	color: #000000;
+	box-shadow: 2px 0px 0px #000;
+}
+
+.tab-btn:hover {
+	background: var(--neon-cyan);
+	color: #000000;
+}
+
+.tab-content {
+	border: var(--brutalist-border);
+	background: var(--pure-black);
+	padding: 16px;
+	box-shadow: 4px 4px 0px var(--neon-green);
+	min-height: 180px;
+	display: flex;
+	flex-direction: column;
+	justify-content: space-between;
+}
+
+.tab-content.settings-view {
+	box-shadow: 4px 4px 0px var(--neon-pink);
+}
+
+.song-title {
+	font-size: 16px;
+	font-weight: 900;
+	text-transform: uppercase;
+	margin: 0 0 4px 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.song-artist {
+	font-size: 12px;
+	text-transform: uppercase;
+	color: var(--neon-cyan);
+	font-weight: bold;
+	margin: 0 0 4px 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.song-album {
+	font-size: 11px;
+	color: #888888;
+	text-transform: uppercase;
+	margin: 0 0 16px 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.progress-box {
+	margin-top: auto;
+	margin-bottom: 12px;
+}
+
+.progress-bar-container {
+	height: 16px;
+	background: #222222;
+	border: 2px solid #ffffff;
+	position: relative;
+	overflow: hidden;
+}
+
+.progress-bar-fill {
+	height: 100%;
+	background: var(--neon-yellow);
+}
+
+.scrobble-marker {
+	position: absolute;
+	top: 0;
+	bottom: 0;
+	width: 3px;
+	background-color: var(--neon-pink);
+	z-index: 5;
+}
+
+.time-labels {
+	display: flex;
+	justify-content: space-between;
+	font-size: 10px;
+	margin-top: 4px;
+	color: #aaaaaa;
+}
+
+.status-badge {
+	border: 2px solid #ffffff;
+	padding: 6px;
+	font-size: 11px;
+	font-weight: bold;
+	text-align: center;
+	text-transform: uppercase;
+	background: #111;
+}
+
+.status-badge.scrobbled {
+	background: var(--neon-green);
+	color: #000;
+	border-color: #000;
+}
+
+.status-badge.nowplaying {
+	background: var(--neon-cyan);
+	color: #000;
+	border-color: #000;
+}
+
+.empty-state {
+	text-align: center;
+	margin-top: auto;
+	margin-bottom: auto;
+	font-size: 12px;
+	line-height: 1.5;
+	text-transform: uppercase;
+	color: #666666;
+}
+
+.form-group {
+	margin-bottom: 12px;
+}
+
+.form-label {
+	display: block;
+	font-size: 11px;
+	font-weight: bold;
+	text-transform: uppercase;
+	margin-bottom: 4px;
+}
+
+.form-input {
+	width: 100%;
+	padding: 8px;
+	background: #111111;
+	color: #ffffff;
+	border: 2px solid #ffffff;
+	box-sizing: border-box;
+	font-family: inherit;
+	font-size: 11px;
+}
+
+.form-input:focus {
+	outline: none;
+	border-color: var(--neon-pink);
+	box-shadow: 2px 2px 0px var(--neon-pink);
+}
+
+.btn-submit {
+	width: 100%;
+	background: var(--neon-pink);
+	color: #000000;
+	border: 2px solid #000000;
+	box-shadow: 3px 3px 0px #ffffff;
+	padding: 10px;
+	font-family: inherit;
+	font-weight: 900;
+	text-transform: uppercase;
+	cursor: pointer;
+	margin-top: 8px;
+	font-size: 11px;
+}
+
+.btn-submit:hover {
+	background: #ffffff;
+	color: #000000;
+}
+
+.btn-submit:active {
+	transform: translate(2px, 2px);
+	box-shadow: 1px 1px 0px #ffffff;
+}
+
+.status-msg {
+	font-size: 10px;
+	text-transform: uppercase;
+	font-weight: bold;
+	margin-top: 8px;
+	text-align: center;
+	padding: 4px;
+}
+
+.status-msg.success {
+	background: var(--neon-green);
+	color: #000;
+}
+
+.status-msg.error {
+	background: var(--neon-pink);
+	color: #fff;
+}

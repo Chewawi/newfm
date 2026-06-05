@@ -1,0 +1,24 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        INSERT INTO albums (artist_id, title, title_normalized)\n        VALUES ($1, $2, $3)\n        ON CONFLICT (artist_id, title_normalized) DO UPDATE\n            SET title = EXCLUDED.title\n        RETURNING id\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "d94efa3ef5839c0ce8aea8409905e0c9b27485c304800abd6b98e69f60c43c67"
+}

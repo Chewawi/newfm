@@ -1,0 +1,29 @@
+name: "Submit to Web Store"
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - run: bun install
+
+      - name: Build the extension
+        run: bun run build
+        working-directory: apps/extension
+
+      - name: Package the extension into a zip artifact
+        run: bun run package
+        working-directory: apps/extension
+
+      - name: Browser Platform Publish
+        uses: PlasmoHQ/bpp@v3
+        with:
+          keys: ${{ secrets.SUBMIT_KEYS }}
+          artifact: apps/extension/build/chrome-mv3-prod.zip
