@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        INSERT INTO tracks (artist_id, album_id, title, title_normalized, duration_ms)\n        VALUES ($1, $2, $3, $4, $5)\n        ON CONFLICT (artist_id, title_normalized) DO UPDATE\n            SET album_id    = COALESCE(EXCLUDED.album_id,    tracks.album_id),\n                duration_ms = COALESCE(EXCLUDED.duration_ms, tracks.duration_ms)\n        RETURNING id, artist_id, album_id, title, title_normalized, mbid,\n                  duration_ms, scrobble_count, created_at\n        ",
+  "query": "\n        SELECT id, artist_id, album_id, title, title_normalized, mbid,\n               duration_ms, scrobble_count, created_at\n        FROM tracks\n        WHERE id = $1\n        ",
   "describe": {
     "columns": [
       {
@@ -51,11 +51,7 @@
     ],
     "parameters": {
       "Left": [
-        "Int8",
-        "Int8",
-        "Text",
-        "Text",
-        "Int4"
+        "Int8"
       ]
     },
     "nullable": [
@@ -70,5 +66,5 @@
       false
     ]
   },
-  "hash": "25b0a9e066398c90325c3fe314ed1a4651b17e1b2fed74f325ba1ef35b94704f"
+  "hash": "49b6444ab3aa1316b02fbbb4d254ecac96a054934fa1c27bfc915c0e0aeb70cc"
 }

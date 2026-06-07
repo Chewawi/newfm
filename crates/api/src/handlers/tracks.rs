@@ -1,4 +1,5 @@
 use aide::axum::IntoApiResponse;
+use aide::transform::TransformOperation;
 use axum::{
     extract::{Path, Query, State},
     Json,
@@ -24,6 +25,14 @@ pub async fn get_track(
         .ok_or(AppError::NotFound)
 }
 
+pub fn _get_track_doc(op: TransformOperation) -> TransformOperation {
+    op.summary("Get a track")
+        .description("Returns catalog metadata for a single track by its internal ID, including title, artist, album, and duration.")
+        .tag("Catalog")
+        .response::<200, Json<Track>>()
+        .response_with::<404, (), _>(|r| r.description("Track not found"))
+}
+
 /// GET /v1/artist/:id
 pub async fn get_artist(
     State(state): State<AppState>,
@@ -33,6 +42,14 @@ pub async fn get_artist(
         .await?
         .map(Json)
         .ok_or(AppError::NotFound)
+}
+
+pub fn _get_artist_doc(op: TransformOperation) -> TransformOperation {
+    op.summary("Get an artist")
+        .description("Returns catalog metadata for a single artist by its internal ID.")
+        .tag("Catalog")
+        .response::<200, Json<Artist>>()
+        .response_with::<404, (), _>(|r| r.description("Artist not found"))
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -73,4 +90,12 @@ pub async fn search(
     };
 
     Ok(Json(SearchResponse { artists, tracks }))
+}
+
+pub fn _search_doc(op: TransformOperation) -> TransformOperation {
+    op.summary("Search catalog")
+        .description("Full-text search across the music catalog. Use the `type` parameter to restrict results to `track`, `artist`, or `all` (default). Returns up to 30 results per type. Query must not be empty.")
+        .tag("Catalog")
+        .response::<200, Json<SearchResponse>>()
+        .response_with::<400, (), _>(|r| r.description("Empty search query"))
 }

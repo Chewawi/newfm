@@ -1,12 +1,12 @@
 use aide::axum::IntoApiResponse;
+use aide::transform::TransformOperation;
 use axum::{
-    extract::{Extension, Path, Query, State},
+    extract::{Extension, Path, State},
     http::StatusCode,
     Json,
 };
-use chrono::Utc;
 use schemars::JsonSchema;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 
 use crate::{
     errors::{ApiResult, AppError},
@@ -58,6 +58,15 @@ pub async fn get_profile(
     }))
 }
 
+pub fn _get_profile_doc(op: TransformOperation) -> TransformOperation {
+    op.summary("Get user profile")
+        .description("Returns the public profile for a user. If the viewer is authenticated, also includes `is_following`. Private profiles return 403 to non-owners.")
+        .tag("Users")
+        .response::<200, Json<ProfileResponse>>()
+        .response_with::<403, (), _>(|r| r.description("Profile is private"))
+        .response_with::<404, (), _>(|r| r.description("User not found"))
+}
+
 #[derive(Debug, Serialize, JsonSchema)]
 pub struct FriendsResponse {
     pub followers: Vec<UserProfile>,
@@ -91,6 +100,14 @@ pub async fn get_friends(
     }))
 }
 
+pub fn _get_friends_doc(op: TransformOperation) -> TransformOperation {
+    op.summary("Get followers and following")
+        .description("Returns both the follower list and the following list for a given user.")
+        .tag("Users")
+        .response::<200, Json<FriendsResponse>>()
+        .response_with::<404, (), _>(|r| r.description("User not found"))
+}
+
 /// POST /v1/user/:username/follow
 pub async fn follow(
     State(state): State<AppState>,
@@ -109,6 +126,16 @@ pub async fn follow(
     Ok(StatusCode::NO_CONTENT)
 }
 
+pub fn _follow_doc(op: TransformOperation) -> TransformOperation {
+    op.summary("Follow a user")
+        .description("Follows the specified user on behalf of the authenticated user. Returns 400 if attempting to follow yourself.")
+        .tag("Users")
+        .response_with::<204, (), _>(|r| r.description("Successfully followed"))
+        .response_with::<400, (), _>(|r| r.description("Cannot follow yourself"))
+        .response_with::<401, (), _>(|r| r.description("Not authenticated"))
+        .response_with::<404, (), _>(|r| r.description("Target user not found"))
+}
+
 /// DELETE /v1/user/:username/follow
 pub async fn unfollow(
     State(state): State<AppState>,
@@ -121,4 +148,13 @@ pub async fn unfollow(
 
     users_db::unfollow_user(&state.db, auth_user.id, target.id).await?;
     Ok(StatusCode::NO_CONTENT)
+}
+
+pub fn _unfollow_doc(op: TransformOperation) -> TransformOperation {
+    op.summary("Unfollow a user")
+        .description("Unfollows the specified user on behalf of the authenticated user.")
+        .tag("Users")
+        .response_with::<204, (), _>(|r| r.description("Successfully unfollowed"))
+        .response_with::<401, (), _>(|r| r.description("Not authenticated"))
+        .response_with::<404, (), _>(|r| r.description("Target user not found"))
 }

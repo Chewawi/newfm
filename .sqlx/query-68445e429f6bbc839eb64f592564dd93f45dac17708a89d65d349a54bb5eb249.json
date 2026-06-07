@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT id, user_id,\n               ip_address::TEXT, user_agent,\n               created_at, expires_at, last_used_at\n        FROM user_sessions\n        WHERE id = $1 AND expires_at > NOW()\n        ",
+  "query": "\n        SELECT id, user_id,\n               ip_address::TEXT, user_agent,\n               created_at, expires_at, last_used_at\n        FROM user_sessions\n        WHERE id = $1\n          AND expires_at > NOW()\n        ",
   "describe": {
     "columns": [
       {
@@ -54,5 +54,5 @@
       false
     ]
   },
-  "hash": "6c281736302f9019a3ec3d04580a25f7049ea097f85243f64a13ac8006aef262"
+  "hash": "68445e429f6bbc839eb64f592564dd93f45dac17708a89d65d349a54bb5eb249"
 }

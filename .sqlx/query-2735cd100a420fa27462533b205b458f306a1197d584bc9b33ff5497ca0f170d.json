@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT\n            s.artist_id AS \"artist_id!\",\n            a.name      AS artist_name,\n            a.image_url,\n            COALESCE(SUM(s.play_count), 0)::BIGINT AS \"play_count!\"\n        FROM scrobbles_daily_by_artist s\n        JOIN artists a ON a.id = s.artist_id\n        WHERE s.user_id = $1\n          AND s.day    >= $2\n        GROUP BY s.artist_id, a.name, a.image_url\n        ORDER BY SUM(s.play_count) DESC\n        LIMIT $3\n        ",
+  "query": "\n        SELECT\n            s.artist_id                                 AS \"artist_id!\",\n            a.name                                      AS artist_name,\n            a.image_url,\n            COALESCE(SUM(s.play_count), 0)::BIGINT      AS \"play_count!\"\n        FROM scrobbles_daily_by_artist s\n        JOIN artists a ON a.id = s.artist_id\n        WHERE s.user_id = $1\n          AND s.day    >= $2\n        GROUP BY s.artist_id, a.name, a.image_url\n        ORDER BY \"play_count!\" DESC\n        LIMIT $3\n        ",
   "describe": {
     "columns": [
       {
@@ -38,5 +38,5 @@
       null
     ]
   },
-  "hash": "be061c411c0409b4b504f2ca05e77957f76d7559ce6c1368525d52e71da4d725"
+  "hash": "2735cd100a420fa27462533b205b458f306a1197d584bc9b33ff5497ca0f170d"
 }

@@ -4,11 +4,12 @@ use crate::{
     state::AppState,
 };
 use aide::axum::IntoApiResponse;
+use aide::transform::TransformOperation;
 use axum::{
+    Json,
     extract::{Extension, Path, Query, State},
     http::StatusCode,
     response::sse::{Event, KeepAlive, Sse},
-    Json,
 };
 use chrono::{Duration, Utc};
 use db::queries::{scrobbles as scrobbles_db, tracks as tracks_db, users as users_db};
@@ -18,6 +19,8 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use shared::scrobble::{self as scrobble_logic, ScrobbleInput};
 use std::convert::Infallible;
+use aide::OperationOutput;
+use axum::response::{IntoResponse, Response};
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
 
@@ -124,6 +127,15 @@ pub async fn scrobble(
     ))
 }
 
+pub fn _scrobble_doc(op: TransformOperation) -> TransformOperation {
+    op.summary("Scrobble a track")
+        .description("Records a track listen for the authenticated user. Validates scrobble rules (e.g. minimum listen duration) and deduplicates submissions within a 30-second window.")
+        .tag("Scrobbling")
+        .response::<201, Json<ScrobbleResponse>>()
+        .response_with::<400, (), _>(|r| r.description("Invalid scrobble (failed validation or duplicate)"))
+        .response_with::<401, (), _>(|r| r.description("Not authenticated"))
+}
+
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct NowPlayingRequest {
     pub track: String,
@@ -187,6 +199,14 @@ pub async fn update_now_playing(
     Ok(StatusCode::NO_CONTENT)
 }
 
+pub fn _update_now_playing_doc(op: TransformOperation) -> TransformOperation {
+    op.summary("Update now playing")
+        .description("Sets the track currently being played by the authenticated user. The state expires automatically when the track duration elapses. Broadcasts the update to all SSE subscribers in real time via Redis.")
+        .tag("Scrobbling")
+        .response_with::<204, (), _>(|r| r.description("Now playing updated"))
+        .response_with::<401, (), _>(|r| r.description("Not authenticated"))
+}
+
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct RecentQuery {
     pub limit: Option<i64>,
@@ -211,6 +231,15 @@ pub async fn recent_scrobbles(
     let scrobbles = scrobbles_db::get_recent_scrobbles(&state.db, user.id, limit, q.before).await?;
 
     Ok(Json(scrobbles))
+}
+
+pub fn _recent_scrobbles_doc(op: TransformOperation) -> TransformOperation {
+    op.summary("Get recent scrobbles")
+        .description("Returns the most recent scrobbles for a user, ordered by `played_at` descending. Maximum 200 per request. Supports cursor-based pagination via the `before` timestamp. Returns 403 for private profiles.")
+        .tag("Scrobbles")
+        .response_with::<200, (), _>(|r| r.description("List of recent scrobbles"))
+        .response_with::<403, (), _>(|r| r.description("Profile is private"))
+        .response_with::<404, (), _>(|r| r.description("User not found"))
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -253,6 +282,15 @@ pub async fn top_artists(
     Ok(Json(artists))
 }
 
+pub fn _top_artists_doc(op: TransformOperation) -> TransformOperation {
+    op.summary("Get top artists")
+        .description("Returns the most scrobbled artists for a user in a given period. Supported periods: `7days`, `1month`, `3months`, `6months`, `1year`, `overall` (default). Maximum 50 results.")
+        .tag("Scrobbles")
+        .response_with::<200, (), _>(|r| r.description("Ranked list of top artists with scrobble counts"))
+        .response_with::<403, (), _>(|r| r.description("Profile is private"))
+        .response_with::<404, (), _>(|r| r.description("User not found"))
+}
+
 /// GET /v1/user/:username/top-tracks
 pub async fn top_tracks(
     State(state): State<AppState>,
@@ -274,6 +312,15 @@ pub async fn top_tracks(
     Ok(Json(tracks))
 }
 
+pub fn _top_tracks_doc(op: TransformOperation) -> TransformOperation {
+    op.summary("Get top tracks")
+        .description("Returns the most scrobbled tracks for a user in a given period. Supported periods: `7days`, `1month`, `3months`, `6months`, `1year`, `overall` (default). Maximum 50 results.")
+        .tag("Scrobbles")
+        .response_with::<200, (), _>(|r| r.description("Ranked list of top tracks with scrobble counts"))
+        .response_with::<403, (), _>(|r| r.description("Profile is private"))
+        .response_with::<404, (), _>(|r| r.description("User not found"))
+}
+
 /// GET /v1/user/:username/heatmap
 pub async fn activity_heatmap(
     State(state): State<AppState>,
@@ -292,10 +339,34 @@ pub async fn activity_heatmap(
     Ok(Json(days))
 }
 
+pub fn _activity_heatmap_doc(op: TransformOperation) -> TransformOperation {
+    op.summary("Get activity heatmap")
+        .description("Returns daily scrobble counts for the past 365 days, suitable for rendering a GitHub-style activity heatmap. Each entry contains a date and a listen count.")
+        .tag("Scrobbles")
+        .response_with::<200, (), _>(|r| r.description("Array of { date, count } objects for the past year"))
+        .response_with::<403, (), _>(|r| r.description("Profile is private"))
+        .response_with::<404, (), _>(|r| r.description("User not found"))
+}
+
+pub struct SseStream<S>(Sse<S>);
+
+impl<S> IntoResponse for SseStream<S>
+where
+    Sse<S>: IntoResponse,
+{
+    fn into_response(self) -> Response {
+        self.0.into_response()
+    }
+}
+
+impl<S> OperationOutput for SseStream<S> {
+    type Inner = ();
+}
+
 pub async fn live_now_playing(
     State(state): State<AppState>,
     Path(username): Path<String>,
-) -> ApiResult<Sse<impl Stream<Item = Result<Event, Infallible>>>> {
+) -> ApiResult<SseStream<impl Stream<Item = Result<Event, Infallible>>>> {
     let user = users_db::find_by_username(&state.db, &username)
         .await?
         .ok_or(AppError::NotFound)?;
@@ -355,5 +426,21 @@ pub async fn live_now_playing(
     });
 
     let stream = ReceiverStream::new(rx);
-    Ok(Sse::new(stream).keep_alive(KeepAlive::default()))
+    Ok(SseStream(Sse::new(stream).keep_alive(KeepAlive::default())))
+}
+
+pub fn _live_now_playing_doc(op: TransformOperation) -> TransformOperation {
+    op.summary("Live now playing (SSE)")
+        .description(
+            "Server-Sent Events stream that pushes real-time now-playing updates for a user. \
+             Emits the current state immediately on connect, then sends an event on every change. \
+             Sends `null` when the user stops listening. \
+             The connection is kept alive automatically via SSE keep-alive.",
+        )
+        .tag("Scrobbles")
+        .response_with::<200, (), _>(|r| {
+            r.description("SSE stream — content-type: text/event-stream")
+        })
+        .response_with::<403, (), _>(|r| r.description("Profile is private"))
+        .response_with::<404, (), _>(|r| r.description("User not found"))
 }

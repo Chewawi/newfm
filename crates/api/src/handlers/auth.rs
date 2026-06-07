@@ -1,4 +1,5 @@
 use aide::axum::IntoApiResponse;
+use aide::transform::TransformOperation;
 use axum::{
     extract::{Extension, State},
     http::StatusCode,
@@ -89,6 +90,15 @@ pub async fn register(
     ))
 }
 
+pub fn _register_doc(op: TransformOperation) -> TransformOperation {
+    op.summary("Register a new user")
+        .description("Creates a new user account and returns a session token. Username must be at least 2 characters and password at least 8.")
+        .tag("Auth")
+        .response::<201, Json<AuthResponse>>()
+        .response_with::<400, (), _>(|r| r.description("Validation error (username too short, password too short)"))
+        .response_with::<409, (), _>(|r| r.description("Username or email already taken"))
+}
+
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct LoginRequest {
     pub username: String,
@@ -116,6 +126,14 @@ pub async fn login(
     }))
 }
 
+pub fn _login_doc(op: TransformOperation) -> TransformOperation {
+    op.summary("Log in")
+        .description("Authenticates a user with username and password. Returns a session token to be used as `Bearer` in the `Authorization` header.")
+        .tag("Auth")
+        .response::<200, Json<AuthResponse>>()
+        .response_with::<401, (), _>(|r| r.description("Invalid credentials"))
+}
+
 /// POST /v1/logout
 pub async fn logout(
     State(state): State<AppState>,
@@ -130,6 +148,14 @@ pub async fn logout(
         .await?;
 
     Ok(StatusCode::NO_CONTENT)
+}
+
+pub fn _logout_doc(op: TransformOperation) -> TransformOperation {
+    op.summary("Log out")
+        .description("Invalidates all active sessions for the authenticated user (logout from all devices). Requires a valid session token.")
+        .tag("Auth")
+        .response_with::<204, (), _>(|r| r.description("Successfully logged out"))
+        .response_with::<401, (), _>(|r| r.description("Not authenticated"))
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -187,6 +213,14 @@ pub async fn create_api_token(
     ))
 }
 
+pub fn _create_api_token_doc(op: TransformOperation) -> TransformOperation {
+    op.summary("Create an API token")
+        .description("Generates a new long-lived API token for programmatic access (e.g. scrobbling from a music player). The raw token is only shown once — store it securely.")
+        .tag("Auth")
+        .response::<201, Json<CreateTokenResponse>>()
+        .response_with::<401, (), _>(|r| r.description("Not authenticated"))
+}
+
 /// GET /v1/auth/tokens
 pub async fn list_api_tokens(
     State(state): State<AppState>,
@@ -194,6 +228,13 @@ pub async fn list_api_tokens(
 ) -> ApiResult<impl IntoApiResponse> {
     let tokens = auth_db::list_api_tokens(&state.db, auth_user.id).await?;
     Ok(Json(tokens))
+}
+
+pub fn _list_api_tokens_doc(op: TransformOperation) -> TransformOperation {
+    op.summary("List API tokens")
+        .description("Returns all active API tokens belonging to the authenticated user. The raw token value is never returned here — only metadata.")
+        .tag("Auth")
+        .response_with::<401, (), _>(|r| r.description("Not authenticated"))
 }
 
 /// DELETE /v1/auth/tokens/:token_id
@@ -208,6 +249,15 @@ pub async fn delete_api_token(
     } else {
         Err(AppError::NotFound)
     }
+}
+
+pub fn _delete_api_token_doc(op: TransformOperation) -> TransformOperation {
+    op.summary("Revoke an API token")
+        .description("Permanently deletes an API token by its ID. Only the owner of the token can revoke it.")
+        .tag("Auth")
+        .response_with::<204, (), _>(|r| r.description("Token successfully revoked"))
+        .response_with::<401, (), _>(|r| r.description("Not authenticated"))
+        .response_with::<404, (), _>(|r| r.description("Token not found or not owned by the authenticated user"))
 }
 
 fn sha2_hex(input: &str) -> String {
