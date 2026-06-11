@@ -1,0 +1,32 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "envMode": "loose",
+  "ui": "tui",
+  "tasks": {
+    "fmt": {
+      "cache": true
+    },
+    "lint": {
+      "cache": true
+    },
+    "build": {
+      "outputs": []
+    },
+    "test": {
+      "dependsOn": ["build"],
+      "cache": true
+    },
+    "check": {
+      "dependsOn": ["fmt", "lint", "test"],
+      "cache": true
+    },
+    "dev": {
+      "persistent": true,
+      "cache": false
+    },
+    "start": {
+      "persistent": true,
+      "cache": false
+    }
+  }
+}

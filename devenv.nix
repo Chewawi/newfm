@@ -4,7 +4,17 @@
     pkg-config
     openssl
     sqlx-cli
+    turbo
+    biome
+    just
   ];
+
+  env = {
+    OPENSSL_NO_VENDOR = "1";
+    OPENSSL_DIR = "${pkgs.openssl.dev}";
+    OPENSSL_LIB_DIR = "${pkgs.openssl.out}/lib";
+    PKG_CONFIG_PATH = "${pkgs.openssl.dev}/lib/pkgconfig";
+  };
 
   dotenv.enable = true;
 
