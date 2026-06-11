@@ -21,14 +21,14 @@ pub enum ScrobbleValidationError {
 /// Input coming from the client before any DB look-ups
 #[derive(Debug, Clone)]
 pub struct ScrobbleInput {
-    pub track_title:  String,
-    pub artist_name:  String,
-    pub album_title:  Option<String>,
-    pub played_at:    DateTime<Utc>,
-    pub duration_ms:  Option<i32>,
+    pub track_title: String,
+    pub artist_name: String,
+    pub album_title: Option<String>,
+    pub played_at: DateTime<Utc>,
+    pub duration_ms: Option<i32>,
     /// How long the user actually listened (may be less than full track)
-    pub listened_ms:  Option<i32>,
-    pub source:       String,
+    pub listened_ms: Option<i32>,
+    pub source: String,
 }
 
 /// Validates raw scrobble input from the client.

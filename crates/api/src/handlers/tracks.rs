@@ -1,8 +1,8 @@
 use aide::axum::IntoApiResponse;
 use aide::transform::TransformOperation;
 use axum::{
-    extract::{Path, Query, State},
     Json,
+    extract::{Path, Query, State},
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};

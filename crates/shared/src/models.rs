@@ -224,4 +224,3 @@ pub struct NowPlayingRich {
     pub expires_at: DateTime<Utc>,
     pub source: String,
 }
-

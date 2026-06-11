@@ -5,7 +5,7 @@ mod router;
 mod state;
 
 use fred::{interfaces::ClientLike, types::Builder as RedisBuilder};
-use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
+use tracing_subscriber::{EnvFilter, layer::SubscriberExt, util::SubscriberInitExt};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {

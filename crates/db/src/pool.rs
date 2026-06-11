@@ -1,4 +1,4 @@
-use sqlx::{postgres::PgPoolOptions, PgPool};
+use sqlx::{PgPool, postgres::PgPoolOptions};
 
 /// Create and return a PostgreSQL connection pool.
 /// Reads pool sizing from env vars if set, otherwise uses sensible defaults.

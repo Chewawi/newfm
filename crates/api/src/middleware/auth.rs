@@ -3,10 +3,7 @@ use axum::{
     middleware::Next,
     response::Response,
 };
-use fred::{
-    interfaces::KeysInterface,
-    types::Expiration,
-};
+use fred::{interfaces::KeysInterface, types::Expiration};
 use schemars::JsonSchema;
 use uuid::Uuid;
 
@@ -15,6 +12,7 @@ use db::queries::auth as auth_db;
 use db::queries::users as users_db;
 
 /// Authenticated user injected into request extensions.
+#[expect(dead_code)] // temporary
 #[derive(Clone, Debug, JsonSchema)]
 pub struct AuthUser {
     pub id: i64,
@@ -97,23 +95,22 @@ fn extract_bearer_token(req: &Request) -> Result<String, AppError> {
 ///
 /// TTL is set to the remaining lifetime of the session so the cache entry
 /// never outlives the underlying row.
-async fn resolve_session_cached(
-    state: &AppState,
-    session_id: Uuid,
-) -> Result<i64, AppError> {
+async fn resolve_session_cached(state: &AppState, session_id: Uuid) -> Result<i64, AppError> {
     let cache_key = format!("session:{session_id}");
 
-    if let Ok(Some(uid_str)) = state.redis.get::<Option<String>, _>(&cache_key).await {
-        if let Ok(uid) = uid_str.parse::<i64>() {
-            return Ok(uid);
-        }
+    if let Ok(Some(uid_str)) = state.redis.get::<Option<String>, _>(&cache_key).await
+        && let Ok(uid) = uid_str.parse::<i64>()
+    {
+        return Ok(uid);
     }
 
     let session = auth_db::get_session(&state.db, session_id)
         .await?
         .ok_or(AppError::Unauthorized)?;
 
-    let ttl_secs = (session.expires_at - chrono::Utc::now()).num_seconds().max(1);
+    let ttl_secs = (session.expires_at - chrono::Utc::now())
+        .num_seconds()
+        .max(1);
     let _ = state
         .redis
         .set::<(), _, _>(

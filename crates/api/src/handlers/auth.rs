@@ -1,9 +1,9 @@
 use aide::axum::IntoApiResponse;
 use aide::transform::TransformOperation;
 use axum::{
+    Json,
     extract::{Extension, State},
     http::StatusCode,
-    Json,
 };
 use chrono::Utc;
 use schemars::JsonSchema;

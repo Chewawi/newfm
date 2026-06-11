@@ -1,8 +1,8 @@
 use aide::OperationOutput;
 use axum::{
+    Json,
     http::StatusCode,
     response::{IntoResponse, Response},
-    Json,
 };
 use serde_json::json;
 use thiserror::Error;
@@ -92,10 +92,12 @@ impl OperationOutput for AppError {
         _ctx: &mut aide::generate::GenContext,
         _operation: &mut aide::openapi::Operation,
     ) -> Option<aide::openapi::Response> {
-        let mut response = aide::openapi::Response::default();
-        response.description =
-            Some("Error response of the API (JSON with format { error: string })".to_string())?;
-        Some(response)
+        Some(aide::openapi::Response {
+            description: Some(
+                "Error response of the API (JSON with format { error: string })".to_string(),
+            )?,
+            ..Default::default()
+        })
     }
 
     fn inferred_responses(

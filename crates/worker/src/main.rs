@@ -1,4 +1,4 @@
-use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
+use tracing_subscriber::{EnvFilter, layer::SubscriberExt, util::SubscriberInitExt};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -48,11 +48,9 @@ async fn main() -> anyhow::Result<()> {
 async fn cleanup_expired(db: &sqlx::PgPool) -> Result<(u64, u64), sqlx::Error> {
     let sessions = db::queries::auth::delete_expired_sessions(db).await?;
 
-    let np_result = sqlx::query!(
-        "DELETE FROM now_playing WHERE expires_at <= NOW()"
-    )
-    .execute(db)
-    .await?;
+    let np_result = sqlx::query!("DELETE FROM now_playing WHERE expires_at <= NOW()")
+        .execute(db)
+        .await?;
 
     Ok((sessions, np_result.rows_affected()))
 }

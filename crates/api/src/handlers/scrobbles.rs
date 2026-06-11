@@ -3,8 +3,10 @@ use crate::{
     middleware::auth::AuthUser,
     state::AppState,
 };
+use aide::OperationOutput;
 use aide::axum::IntoApiResponse;
 use aide::transform::TransformOperation;
+use axum::response::{IntoResponse, Response};
 use axum::{
     Json,
     extract::{Extension, Path, Query, State},
@@ -19,8 +21,6 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use shared::scrobble::{self as scrobble_logic, ScrobbleInput};
 use std::convert::Infallible;
-use aide::OperationOutput;
-use axum::response::{IntoResponse, Response};
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
 
@@ -386,10 +386,10 @@ pub async fn live_now_playing(
         let initial_np = scrobbles_db::get_now_playing(&db_pool, user_id).await;
         match initial_np {
             Ok(Some(rich)) => {
-                if let Ok(event) = Event::default().json_data(&rich) {
-                    if tx.send(Ok(event)).await.is_err() {
-                        return; // client disconnected
-                    }
+                if let Ok(event) = Event::default().json_data(&rich)
+                    && tx.send(Ok(event)).await.is_err()
+                {
+                    return; // client disconnected
                 }
             }
             Ok(None) => {
@@ -414,12 +414,12 @@ pub async fn live_now_playing(
 
         // 3. Listen to Redis messages and forward to client
         while let Ok(msg) = message_rx.recv().await {
-            if msg.channel.to_string() == channel_name {
-                if let Ok(value_str) = msg.value.convert::<String>() {
-                    let event = Event::default().data(value_str);
-                    if tx.send(Ok(event)).await.is_err() {
-                        break; // client disconnected
-                    }
+            if msg.channel == channel_name
+                && let Ok(value_str) = msg.value.convert::<String>()
+            {
+                let event = Event::default().data(value_str);
+                if tx.send(Ok(event)).await.is_err() {
+                    break; // client disconnected
                 }
             }
         }

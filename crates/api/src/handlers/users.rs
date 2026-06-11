@@ -1,9 +1,9 @@
 use aide::axum::IntoApiResponse;
 use aide::transform::TransformOperation;
 use axum::{
+    Json,
     extract::{Extension, Path, State},
     http::StatusCode,
-    Json,
 };
 use schemars::JsonSchema;
 use serde::Serialize;
