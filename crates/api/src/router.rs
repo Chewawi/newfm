@@ -21,6 +21,8 @@ use crate::{
     state::AppState,
 };
 
+use crate::middleware::optional_auth::optional_auth;
+
 async fn serve_api(Extension(api): Extension<Arc<OpenApi>>) -> impl IntoApiResponse {
     Json(api)
 }
@@ -129,7 +131,8 @@ pub fn build(state: AppState) -> Router {
         .api_route(
             "/health",
             get_with(health, |r| r.hidden(true).description("Health check xD")),
-        );
+        )
+        .layer(middleware::from_fn_with_state(state.clone(), optional_auth));
 
     let mut api = OpenApi::default();
 
