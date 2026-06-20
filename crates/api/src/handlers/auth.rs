@@ -6,6 +6,7 @@ use axum::{
     http::StatusCode,
 };
 use chrono::Utc;
+use fred::interfaces::KeysInterface;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -17,6 +18,9 @@ use crate::{
 };
 use db::queries::{auth as auth_db, users as users_db};
 use shared::user::{hash_password, verify_password};
+
+// Reserved usernames that cannot be registered (e.g. "me" for /user/me)
+const RESERVED_USERNAMES: &[&str] = &["me", "settings", "admin", "api"];
 
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct RegisterRequest {
@@ -43,6 +47,9 @@ pub async fn register(
         return Err(AppError::BadRequest(
             "username must be at least 2 characters".into(),
         ));
+    }
+    if RESERVED_USERNAMES.contains(&body.username.as_str()) {
+        return Err(AppError::BadRequest("username is reserved".into()));
     }
     if body.password.len() < 8 {
         return Err(AppError::BadRequest(
@@ -139,13 +146,19 @@ pub async fn logout(
     State(state): State<AppState>,
     Extension(auth_user): Extension<AuthUser>,
 ) -> ApiResult<StatusCode> {
-    // We need the raw token to find which session to delete
-    // In practice extract it from the Authorization header directly
-    // For simplicity, delete all sessions for this user (logout everywhere)
-    // A more precise implementation would extract the session UUID from the header.
-    sqlx::query!("DELETE FROM user_sessions WHERE user_id = $1", auth_user.id,)
-        .execute(&state.db)
-        .await?;
+    let deleted_ids = sqlx::query_scalar!(
+        "DELETE FROM user_sessions WHERE user_id = $1 RETURNING id",
+        auth_user.id,
+    )
+    .fetch_all(&state.db)
+    .await?;
+
+    for session_id in deleted_ids {
+        let cache_key = format!("session:{session_id}");
+        if let Err(err) = state.redis.del::<i64, _>(&cache_key).await {
+            tracing::warn!(%session_id, ?err, "failed to invalidate session cache on logout");
+        }
+    }
 
     Ok(StatusCode::NO_CONTENT)
 }
@@ -186,7 +199,7 @@ pub async fn create_api_token(
     let raw_token = hex::encode(raw_bytes);
 
     // Hash it for storage (sha2 would be ideal; using simple approach for now)
-    let token_hash = sha2_hex(&raw_token);
+    let token_hash = auth_db::hash_api_token(&raw_token);
 
     let scopes = body.scopes.unwrap_or_else(|| vec!["scrobble".into()]);
 
@@ -258,13 +271,4 @@ pub fn _delete_api_token_doc(op: TransformOperation) -> TransformOperation {
         .response_with::<204, (), _>(|r| r.description("Token successfully revoked"))
         .response_with::<401, (), _>(|r| r.description("Not authenticated"))
         .response_with::<404, (), _>(|r| r.description("Token not found or not owned by the authenticated user"))
-}
-
-fn sha2_hex(input: &str) -> String {
-    // Structural placeholder — replace with sha2::Sha256 in production
-    use std::collections::hash_map::DefaultHasher;
-    use std::hash::{Hash, Hasher};
-    let mut hasher = DefaultHasher::new();
-    input.hash(&mut hasher);
-    format!("{:016x}", hasher.finish())
 }
