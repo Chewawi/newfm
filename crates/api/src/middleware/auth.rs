@@ -52,7 +52,7 @@ pub async fn require_auth(
             scopes: vec!["scrobble".into(), "read".into(), "write".into()],
         }
     } else {
-        let hash = sha256_hex(&token);
+        let hash = auth_db::hash_api_token(&token);
         let api_token = auth_db::find_api_token_by_hash(&state.db, &hash)
             .await?
             .ok_or(AppError::Unauthorized)?;
@@ -78,17 +78,41 @@ pub async fn require_auth(
     Ok(next.run(req).await)
 }
 
-fn extract_bearer_token(req: &Request) -> Result<String, AppError> {
-    let header = req
-        .headers()
-        .get(axum::http::header::AUTHORIZATION)
-        .and_then(|v| v.to_str().ok())
-        .ok_or(AppError::Unauthorized)?;
+/// Attempts to resolve a session token to an [`AuthUser`], returning `None`
+/// on any failure (invalid UUID, no matching session, user not found, or a
+/// transient DB/Redis error).
+async fn try_authenticate_session(state: &AppState, token: &str) -> Option<AuthUser> {
+    let session_id = Uuid::parse_str(token).ok()?;
+    let user_id = resolve_session_cached(state, session_id).await.ok()?;
+    let user = users_db::find_by_id(&state.db, user_id).await.ok()??;
 
-    header
-        .strip_prefix("Bearer ")
-        .map(|s| s.to_string())
-        .ok_or(AppError::Unauthorized)
+    Some(AuthUser {
+        id: user.id,
+        username: user.username,
+        scopes: vec!["scrobble".into(), "read".into(), "write".into()],
+    })
+}
+
+/// Middleware that *optionally* authenticates a request via session token.
+///
+/// Unlike [`require_auth`], a missing, malformed, or invalid token is not an
+/// error — the request simply proceeds with no [`AuthUser`] in its
+/// extensions. This also means a transient failure (DB or Redis hiccup) is
+/// indistinguishable from "not logged in"; only use this where that's okay.
+///
+/// Only session tokens are accepted here, not API tokens.
+pub async fn optional_auth(
+    State(state): State<AppState>,
+    mut req: Request,
+    next: Next,
+) -> Response {
+    if let Ok(token) = extract_bearer_token(&req)
+        && let Some(user) = try_authenticate_session(&state, &token).await
+    {
+        req.extensions_mut().insert(user);
+    }
+
+    next.run(req).await
 }
 
 /// Resolves a session UUID to a `user_id`, using Redis as a read-through cache.
@@ -125,11 +149,15 @@ async fn resolve_session_cached(state: &AppState, session_id: Uuid) -> Result<i6
     Ok(session.user_id)
 }
 
-/// Placeholder SHA-256. Replace with the `sha2` crate before going to production.
-fn sha256_hex(input: &str) -> String {
-    use std::collections::hash_map::DefaultHasher;
-    use std::hash::{Hash, Hasher};
-    let mut hasher = DefaultHasher::new();
-    input.hash(&mut hasher);
-    format!("{:016x}", hasher.finish())
+fn extract_bearer_token(req: &Request) -> Result<String, AppError> {
+    let header = req
+        .headers()
+        .get(axum::http::header::AUTHORIZATION)
+        .and_then(|v| v.to_str().ok())
+        .ok_or(AppError::Unauthorized)?;
+
+    header
+        .strip_prefix("Bearer ")
+        .map(|s| s.to_string())
+        .ok_or(AppError::Unauthorized)
 }

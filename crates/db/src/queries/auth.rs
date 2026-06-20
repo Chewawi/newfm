@@ -1,4 +1,5 @@
 use chrono::{Duration, Utc};
+use sha2::{Digest, Sha256};
 use sqlx::PgPool;
 use uuid::Uuid;
 
@@ -155,4 +156,14 @@ pub async fn touch_api_token(pool: &PgPool, id: Uuid) -> Result<(), sqlx::Error>
     .execute(pool)
     .await?;
     Ok(())
+}
+
+/// Hashes a raw API token for storage and lookup. This is the ONLY place
+/// this hashing should happen — both token creation and request validation
+/// must call this, or stored hashes and lookup hashes will diverge and
+/// every token will silently fail to authenticate.
+pub fn hash_api_token(raw: &str) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(raw.as_bytes());
+    hex::encode(hasher.finalize())
 }
