@@ -6,7 +6,7 @@ use axum::{
     http::StatusCode,
 };
 use schemars::JsonSchema;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::{
     errors::{ApiResult, AppError},
@@ -33,24 +33,9 @@ pub async fn get_profile(
         .await?
         .ok_or(AppError::NotFound)?;
 
-    if user.is_private {
-        // Private profile — only visible to followers or the user themselves
-        let viewer_id = auth_user.as_ref().map(|a| a.id);
-        let is_owner = viewer_id == Some(user.id);
-        if !is_owner {
-            return Err(AppError::Forbidden);
-        }
-    }
-
-    let is_following = if let Some(Extension(viewer)) = &auth_user {
-        if viewer.id != user.id {
-            Some(users_db::is_following(&state.db, viewer.id, user.id).await?)
-        } else {
-            None
-        }
-    } else {
-        None
-    };
+    let viewer_id = auth_user.as_ref().map(|Extension(a)| a.id);
+    let is_following =
+        crate::middleware::visibility::ensure_profile_visible(&state, viewer_id, &user).await?;
 
     Ok(Json(ProfileResponse {
         profile: user.into(),
@@ -73,14 +58,64 @@ pub struct FriendsResponse {
     pub following: Vec<UserProfile>,
 }
 
+/// GET /v1/user/me
+pub async fn get_own_profile(
+    State(state): State<AppState>,
+    Extension(auth_user): Extension<AuthUser>,
+) -> ApiResult<impl IntoApiResponse> {
+    let user = users_db::find_by_id(&state.db, auth_user.id)
+        .await?
+        .ok_or(AppError::NotFound)?;
+
+    Ok(Json(ProfileResponse {
+        profile: user.into(),
+        is_following: None, // you can't follow yourself
+    }))
+}
+
+pub fn _get_own_profile_doc(op: TransformOperation) -> TransformOperation {
+    op.summary("Get my own profile")
+        .description("Alias for fetching the authenticated user's own profile, regardless of privacy settings.")
+        .tag("Users")
+        .response::<200, Json<ProfileResponse>>()
+        .response_with::<401, (), _>(|r| r.description("Not authenticated"))
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct UpdateSettingsRequest {
+    pub is_private: bool,
+}
+
+/// PATCH /v1/user/me
+pub async fn update_settings(
+    State(state): State<AppState>,
+    Extension(auth_user): Extension<AuthUser>,
+    Json(body): Json<UpdateSettingsRequest>,
+) -> ApiResult<impl IntoApiResponse> {
+    let user = users_db::set_is_private(&state.db, auth_user.id, body.is_private).await?;
+    Ok(Json(UserProfile::from(user)))
+}
+
+pub fn _update_settings_doc(op: TransformOperation) -> TransformOperation {
+    op.summary("Update account settings")
+        .description("Updates settings for the authenticated user's own account (currently: profile privacy).")
+        .tag("Users")
+        .response::<200, Json<UserProfile>>()
+        .response_with::<401, (), _>(|r| r.description("Not authenticated"))
+}
+
 /// GET /v1/user/:username/friends
 pub async fn get_friends(
     State(state): State<AppState>,
     Path(username): Path<String>,
+    auth_user: Option<Extension<AuthUser>>,
 ) -> ApiResult<impl IntoApiResponse> {
     let user = users_db::find_by_username(&state.db, &username)
         .await?
         .ok_or(AppError::NotFound)?;
+
+    let viewer_id = auth_user.as_ref().map(|Extension(a)| a.id);
+    crate::middleware::visibility::ensure_profile_visible(&state, viewer_id, &user).await?;
 
     let followers = users_db::get_followers(&state.db, user.id)
         .await?
@@ -105,6 +140,7 @@ pub fn _get_friends_doc(op: TransformOperation) -> TransformOperation {
         .description("Returns both the follower list and the following list for a given user.")
         .tag("Users")
         .response::<200, Json<FriendsResponse>>()
+        .response_with::<403, (), _>(|r| r.description("Profile is private"))
         .response_with::<404, (), _>(|r| r.description("User not found"))
 }
 
@@ -146,6 +182,10 @@ pub async fn unfollow(
         .await?
         .ok_or(AppError::NotFound)?;
 
+    if target.id == auth_user.id {
+        return Err(AppError::BadRequest("cannot unfollow yourself".into()));
+    }
+
     users_db::unfollow_user(&state.db, auth_user.id, target.id).await?;
     Ok(StatusCode::NO_CONTENT)
 }
@@ -155,6 +195,7 @@ pub fn _unfollow_doc(op: TransformOperation) -> TransformOperation {
         .description("Unfollows the specified user on behalf of the authenticated user.")
         .tag("Users")
         .response_with::<204, (), _>(|r| r.description("Successfully unfollowed"))
+        .response_with::<400, (), _>(|r| r.description("Cannot unfollow yourself"))
         .response_with::<401, (), _>(|r| r.description("Not authenticated"))
         .response_with::<404, (), _>(|r| r.description("Target user not found"))
 }

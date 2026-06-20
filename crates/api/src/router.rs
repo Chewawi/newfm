@@ -1,3 +1,4 @@
+use aide::axum::routing::patch_with;
 use aide::transform::TransformOpenApi;
 use aide::{
     axum::{
@@ -17,11 +18,9 @@ use tower_http::{
 
 use crate::{
     handlers::{auth, scrobbles, tracks, users},
-    middleware::{auth::require_auth, rate_limit::rate_limit},
+    middleware::{auth::optional_auth, auth::require_auth, rate_limit::rate_limit},
     state::AppState,
 };
-
-use crate::middleware::optional_auth::optional_auth;
 
 async fn serve_api(Extension(api): Extension<Arc<OpenApi>>) -> impl IntoApiResponse {
     Json(api)
@@ -40,6 +39,15 @@ pub fn build(state: AppState) -> Router {
                 scrobbles::update_now_playing,
                 scrobbles::_update_now_playing_doc,
             ),
+        )
+        // User profile
+        .api_route(
+            "/v1/user/me",
+            get_with(users::get_own_profile, users::_get_own_profile_doc),
+        )
+        .api_route(
+            "/v1/user/me",
+            patch_with(users::update_settings, users::_update_settings_doc),
         )
         // Social
         .api_route(
@@ -83,6 +91,7 @@ pub fn build(state: AppState) -> Router {
             "/v1/user/{username}",
             get_with(users::get_profile, users::_get_profile_doc),
         )
+        .layer(middleware::from_fn_with_state(state.clone(), optional_auth))
         .api_route(
             "/v1/user/{username}/friends",
             get_with(users::get_friends, users::_get_friends_doc),
@@ -131,8 +140,7 @@ pub fn build(state: AppState) -> Router {
         .api_route(
             "/health",
             get_with(health, |r| r.hidden(true).description("Health check xD")),
-        )
-        .layer(middleware::from_fn_with_state(state.clone(), optional_auth));
+        );
 
     let mut api = OpenApi::default();
 

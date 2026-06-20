@@ -164,3 +164,25 @@ pub async fn is_following(
     .await?;
     Ok(row.is_some())
 }
+
+pub async fn set_is_private(
+    pool: &PgPool,
+    user_id: i64,
+    is_private: bool,
+) -> Result<User, sqlx::Error> {
+    sqlx::query_as!(
+        User,
+        r#"
+        UPDATE users
+        SET is_private = $2, updated_at = NOW()
+        WHERE id = $1
+        RETURNING id, username, email, password_hash, display_name, bio,
+                  image_url, website_url, country, scrobble_count,
+                  is_private, is_verified, last_seen_at, created_at, updated_at
+        "#,
+        user_id,
+        is_private,
+    )
+    .fetch_one(pool)
+    .await
+}
