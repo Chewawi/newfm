@@ -218,14 +218,14 @@ pub async fn recent_scrobbles(
     State(state): State<AppState>,
     Path(username): Path<String>,
     Query(q): Query<RecentQuery>,
+    auth_user: Option<Extension<AuthUser>>,
 ) -> ApiResult<impl IntoApiResponse> {
     let user = users_db::find_by_username(&state.db, &username)
         .await?
         .ok_or(AppError::NotFound)?;
 
-    if user.is_private {
-        return Err(AppError::Forbidden);
-    }
+    let viewer_id = auth_user.map(|Extension(a)| a.id);
+    crate::middleware::visibility::ensure_profile_visible(&state, viewer_id, &user).await?;
 
     let limit = q.limit.unwrap_or(50).min(200);
     let scrobbles = scrobbles_db::get_recent_scrobbles(&state.db, user.id, limit, q.before).await?;
@@ -266,14 +266,14 @@ pub async fn top_artists(
     State(state): State<AppState>,
     Path(username): Path<String>,
     Query(q): Query<PeriodQuery>,
+    auth_user: Option<Extension<AuthUser>>,
 ) -> ApiResult<impl IntoApiResponse> {
     let user = users_db::find_by_username(&state.db, &username)
         .await?
         .ok_or(AppError::NotFound)?;
 
-    if user.is_private {
-        return Err(AppError::Forbidden);
-    }
+    let viewer_id = auth_user.map(|Extension(a)| a.id);
+    crate::middleware::visibility::ensure_profile_visible(&state, viewer_id, &user).await?;
 
     let since = period_to_since(q.period.as_deref().unwrap_or("overall"));
     let limit = q.limit.unwrap_or(10).min(50);
@@ -296,14 +296,14 @@ pub async fn top_tracks(
     State(state): State<AppState>,
     Path(username): Path<String>,
     Query(q): Query<PeriodQuery>,
+    auth_user: Option<Extension<AuthUser>>,
 ) -> ApiResult<impl IntoApiResponse> {
     let user = users_db::find_by_username(&state.db, &username)
         .await?
         .ok_or(AppError::NotFound)?;
 
-    if user.is_private {
-        return Err(AppError::Forbidden);
-    }
+    let viewer_id = auth_user.map(|Extension(a)| a.id);
+    crate::middleware::visibility::ensure_profile_visible(&state, viewer_id, &user).await?;
 
     let since = period_to_since(q.period.as_deref().unwrap_or("overall"));
     let limit = q.limit.unwrap_or(10).min(50);
@@ -325,14 +325,14 @@ pub fn _top_tracks_doc(op: TransformOperation) -> TransformOperation {
 pub async fn activity_heatmap(
     State(state): State<AppState>,
     Path(username): Path<String>,
+    auth_user: Option<Extension<AuthUser>>,
 ) -> ApiResult<impl IntoApiResponse> {
     let user = users_db::find_by_username(&state.db, &username)
         .await?
         .ok_or(AppError::NotFound)?;
 
-    if user.is_private {
-        return Err(AppError::Forbidden);
-    }
+    let viewer_id = auth_user.map(|Extension(a)| a.id);
+    crate::middleware::visibility::ensure_profile_visible(&state, viewer_id, &user).await?;
 
     let since = Utc::now() - Duration::days(365);
     let days = scrobbles_db::get_activity_heatmap(&state.db, user.id, since).await?;
@@ -366,14 +366,14 @@ impl<S> OperationOutput for SseStream<S> {
 pub async fn live_now_playing(
     State(state): State<AppState>,
     Path(username): Path<String>,
+    auth_user: Option<Extension<AuthUser>>,
 ) -> ApiResult<SseStream<impl Stream<Item = Result<Event, Infallible>>>> {
     let user = users_db::find_by_username(&state.db, &username)
         .await?
         .ok_or(AppError::NotFound)?;
 
-    if user.is_private {
-        return Err(AppError::Forbidden);
-    }
+    let viewer_id = auth_user.map(|Extension(a)| a.id);
+    crate::middleware::visibility::ensure_profile_visible(&state, viewer_id, &user).await?;
 
     let (tx, rx) = mpsc::channel(10);
 

@@ -33,7 +33,7 @@ pub async fn get_profile(
         .await?
         .ok_or(AppError::NotFound)?;
 
-    let viewer_id = auth_user.as_ref().map(|Extension(a)| a.id);
+    let viewer_id = auth_user.map(|Extension(a)| a.id);
     let is_following =
         crate::middleware::visibility::ensure_profile_visible(&state, viewer_id, &user).await?;
 
@@ -114,7 +114,7 @@ pub async fn get_friends(
         .await?
         .ok_or(AppError::NotFound)?;
 
-    let viewer_id = auth_user.as_ref().map(|Extension(a)| a.id);
+    let viewer_id = auth_user.map(|Extension(a)| a.id);
     crate::middleware::visibility::ensure_profile_visible(&state, viewer_id, &user).await?;
 
     let followers = users_db::get_followers(&state.db, user.id)

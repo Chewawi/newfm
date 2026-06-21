@@ -86,16 +86,33 @@ pub fn build(state: AppState) -> Router {
             post_with(auth::register, auth::_register_doc),
         )
         .api_route("/v1/auth/login", post_with(auth::login, auth::_login_doc))
-        // User profiles (visibility checked inside handler)
+        // Catalog
+        .api_route(
+            "/v1/track/{id}",
+            get_with(tracks::get_track, tracks::_get_track_doc),
+        )
+        .api_route(
+            "/v1/artist/{id}",
+            get_with(tracks::get_artist, tracks::_get_artist_doc),
+        )
+        .api_route("/v1/search", get_with(tracks::search, tracks::_search_doc))
+        // Health
+        .api_route(
+            "/health",
+            get_with(health, |r| r.hidden(true).description("Health check xD")),
+        );
+
+    let optional_authed_users = ApiRouter::new()
+        // User profiles
         .api_route(
             "/v1/user/{username}",
             get_with(users::get_profile, users::_get_profile_doc),
         )
-        .layer(middleware::from_fn_with_state(state.clone(), optional_auth))
         .api_route(
             "/v1/user/{username}/friends",
             get_with(users::get_friends, users::_get_friends_doc),
         )
+        // User scrobble data
         .api_route(
             "/v1/user/{username}/recent",
             get_with(
@@ -103,7 +120,6 @@ pub fn build(state: AppState) -> Router {
                 scrobbles::_recent_scrobbles_doc,
             ),
         )
-        // SSE endpoint — registered as a plain route (aide does not support streaming response types)
         .api_route(
             "/v1/user/{username}/live",
             get_with(
@@ -126,21 +142,7 @@ pub fn build(state: AppState) -> Router {
                 scrobbles::_activity_heatmap_doc,
             ),
         )
-        // Catalog
-        .api_route(
-            "/v1/track/{id}",
-            get_with(tracks::get_track, tracks::_get_track_doc),
-        )
-        .api_route(
-            "/v1/artist/{id}",
-            get_with(tracks::get_artist, tracks::_get_artist_doc),
-        )
-        .api_route("/v1/search", get_with(tracks::search, tracks::_search_doc))
-        // Health
-        .api_route(
-            "/health",
-            get_with(health, |r| r.hidden(true).description("Health check xD")),
-        );
+        .layer(middleware::from_fn_with_state(state.clone(), optional_auth));
 
     let mut api = OpenApi::default();
 
@@ -148,6 +150,7 @@ pub fn build(state: AppState) -> Router {
         .route("/docs", Scalar::new("/api.json").axum_route())
         .merge(authed)
         .merge(public)
+        .merge(optional_authed_users)
         .layer(middleware::from_fn_with_state(state.clone(), rate_limit))
         .layer(TraceLayer::new_for_http())
         .layer(CompressionLayer::new())
