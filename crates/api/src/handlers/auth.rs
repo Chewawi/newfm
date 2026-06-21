@@ -48,7 +48,7 @@ pub async fn register(
             "username must be at least 2 characters".into(),
         ));
     }
-    if RESERVED_USERNAMES.contains(&body.username.as_str()) {
+    if RESERVED_USERNAMES.contains(&body.username.to_lowercase().as_str()) {
         return Err(AppError::BadRequest("username is reserved".into()));
     }
     if body.password.len() < 8 {
